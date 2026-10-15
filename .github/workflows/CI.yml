@@ -5,11 +5,15 @@ on:
       - main
     tags: '*'
   pull_request:
+  workflow_dispatch:
 concurrency:
   # Skip intermediate builds: always.
   # Cancel intermediate builds: only if it is a pull request build.
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+permissions: # needed to allow julia-actions/cache to proactively delete old caches that it has created
+  actions: write
+  contents: read
 jobs:
   test:
     name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
@@ -17,44 +21,46 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version:
-          - '1'
+        version: ['1.6', '1.7', '1.8', '1.9', 'lts', '1.11', '1.12', '1.13', 'nightly']
         os:
           - ubuntu-latest
           - windows-latest
-          - macOS-13
+          - macos-15-intel
         arch:
           - x64
         include:
-          - os: macOS-latest
+          - os: macos-latest
             arch: aarch64
-            version: 1
+            version: '1'
           - os: ubuntu-latest
             arch: x64
             version: 'min'
     steps:
-      - uses: actions/checkout@v4
-      - uses: julia-actions/setup-julia@v2
+      - uses: actions/checkout@v7
+      - uses: julia-actions/setup-julia@v3
         with:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
-      - uses: julia-actions/cache@v2
+      - uses: julia-actions/cache@v3
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
+        with:
+          coverage: false
       - uses: julia-actions/julia-processcoverage@v1
-      - uses: codecov/codecov-action@v4
+      - uses: codecov/codecov-action@v7
         with:
           files: lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
-          
+
   docs:
     name: Documentation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: julia-actions/setup-julia@v2
+      - uses: actions/checkout@v7
+      - uses: julia-actions/setup-julia@v3
         with:
           version: '1'
+      - uses: julia-actions/cache@v3
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-docdeploy@v1
         env:
